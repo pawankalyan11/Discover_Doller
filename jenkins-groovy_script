@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_HUB_USER = 'pawankalyan29'
+    }
+
+    stages {
+        stage('Clone Repo') {
+            steps {
+                git 'https://github.com/pawankalyan11/Discover_Doller.git' 
+            }
+        }
+
+        stage('Build & Push Docker Images') {
+            steps {
+                sh '''
+                    docker build -t $DOCKER_HUB_USER/mean-backend:v1 ./backend
+                    docker build -t $DOCKER_HUB_USER/mean-frontend:v1 ./frontend
+                    docker push $DOCKER_HUB_USER/mean-backend:v1
+                    docker push $DOCKER_HUB_USER/mean-frontend:v1
+                '''
+            }
+        }
+
+        stage('Deploy to EC2 VM') {
+            steps {
+                sshagent(['ec2-ssh-key']) { 
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no ubuntu@3.89.97.207 << 'EOF'
+                        cd /home/ubuntu/Discover_Doller/crud-dd-task-mean-app
+                        git pull origin main
+                        docker-compose pull
+                        docker-compose down
+                        docker-compose up -d
+                        EOF
+                    '''
+                }
+            }
+        }
+    }
